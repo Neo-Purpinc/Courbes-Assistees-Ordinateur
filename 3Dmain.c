@@ -4,19 +4,24 @@
 #include <stdio.h>
 
 /* dimensions de la fenetre */
-int width = 600;
-int height = 400;
+int width = 1600;
+int height = 900;
 
 /*************************************************************************/
 /* Bezier */
 /*************************************************************************/
-
 #define MAX_POINTS 100
 typedef struct
 {
 	float x, y, z;
 } Point;
-
+typedef Point Carreau[4];
+Carreau exemple = {
+	{4, 1, 1},
+	{4, 4, 3},
+	{1, 3, 1},
+	{1, 1, 3}
+};
 Point pt(float x, float y, float z)
 {
 	Point p;
@@ -25,7 +30,13 @@ Point pt(float x, float y, float z)
 	p.z = z;
 	return p;
 }
-
+ Point bezier3D(float s, float t){
+	Point p;
+	p.x = (1-t)*(1-s)*exemple[0].x + t*(1-s)*exemple[1].x + t*s*exemple[2].x + (1-t)*s*exemple[3].x;
+	p.y = (1-t)*(1-s)*exemple[0].y + t*(1-s)*exemple[1].y + t*s*exemple[2].y + (1-t)*s*exemple[3].y;
+	p.z = (1-t)*(1-s)*exemple[0].z + t*(1-s)*exemple[1].z + t*s*exemple[2].z + (1-t)*s*exemple[3].z;
+	return p;
+ }
 
 /*************************************************************************/
 /* Fonctions de dessin */
@@ -48,18 +59,19 @@ void drawLine(Point p1, Point p2)
 {
 	glBegin(GL_LINES);
 	glVertex3d(p1.x,p1.y,p1.z);
-	glVertex3d(p2.x,p2.y,p2.z);
+	glVertex3d(p2.x,p2.y,p2.z);typedef Point Vecteur[MAX_POINTS];
 	glEnd();
 }
 
-void drawQuad(Point p1, Point p2, Point p3, Point p4)
+void drawQuad(Carreau c)
 {
+	chooseColor(1,1,1);
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glBegin(GL_QUADS);
-	glVertex3f(p1.x,p1.y,p1.z);
-	glVertex3f(p2.x,p2.y,p2.z);
-	glVertex3f(p3.x,p3.y,p3.z);
-	glVertex3f(p4.x,p4.y,p4.z);
+	glVertex3f(c[0].x,c[0].y,c[0].z);
+	glVertex3f(c[1].x,c[1].y,c[1].z);
+	glVertex3f(c[2].x,c[2].y,c[2].z);
+	glVertex3f(c[3].x,c[3].y,c[3].z);
 	glEnd();
 }
 
@@ -104,7 +116,13 @@ void display()
 	}
 
 	// ** Dessinez ici **
-	
+	drawQuad(exemple);
+	chooseColor(1,0,0);
+	for(float s=0.; s<=1.; s+=0.005){
+		float t = 1-s;
+		Point p = bezier3D(s,t);
+		drawPoint(p);
+	}
 	glutSwapBuffers();
 }
 
@@ -152,14 +170,14 @@ int main(int argc, char *argv[])
 	/* Initialisations globales */
 	glutInit(&argc, argv);
 
-	/* Définition des attributs de la fenetre OpenGL */
+	/* Dï¿½finition des attributs de la fenetre OpenGL */
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 
 	/* Placement de la fenetre */
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(50, 50);
 	
-	/* Création de la fenetre */
+	/* Crï¿½ation de la fenetre */
     glutCreateWindow("Carreau de Bezier");
 
 	/* Choix de la fonction d'affichage */
@@ -178,7 +196,7 @@ int main(int argc, char *argv[])
 	/* Boucle principale */
     glutMainLoop();
 
-	/* Même si glutMainLoop ne rends JAMAIS la main, il faut définir le return, sinon
+	/* Mï¿½me si glutMainLoop ne rends JAMAIS la main, il faut dï¿½finir le return, sinon
 	le compilateur risque de crier */
     return 0;
 }

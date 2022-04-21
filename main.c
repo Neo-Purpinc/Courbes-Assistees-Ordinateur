@@ -10,8 +10,6 @@ int width = 600;
 int height = 400;
 typedef enum{ LIGNES, POINTS } Mode;
 Mode MODE = LIGNES;
-bool bezierConstru = false;
-
 int selected = -1;
 
 /*************************************************************************/
@@ -53,6 +51,7 @@ typedef Point Vecteur[MAX_POINTS];
 Vecteur poly;
 float pas = 0.01;
 float t = 0.5;
+bool bezierConstru = false;
 
 Point Bezier(float t,bool draw){
 	Vecteur tmp;
