@@ -8,9 +8,37 @@
 /* dimensions de la fenetre */
 int width = 600;
 int height = 400;
-typedef enum{ LIGNES, POINTS, BEZIER } Mode;
+typedef enum{ LIGNES, POINTS } Mode;
 Mode MODE = LIGNES;
+bool bezierConstru = false;
+
 int selected = -1;
+
+/*************************************************************************/
+/* Fonctions de dessin */
+/*************************************************************************/
+
+/* rouge vert bleu entre 0 et 1 */
+void chooseColor(double r, double g, double b)
+{
+	glColor3d(r,g,b);
+}
+
+void drawPoint(double x, double  y)
+{
+	glBegin(GL_POINTS);
+	glVertex2d(x,y);
+	glEnd();
+}
+
+void drawLine(double x1, double  y1, double x2, double y2)
+{
+	glBegin(GL_LINES);
+	glVertex2d(x1,y1);
+	glVertex2d(x2,y2);
+	glEnd();
+}
+
 /*************************************************************************/
 /* Bezier */
 /*************************************************************************/
@@ -40,47 +68,38 @@ Point Bezier(float t,bool draw){
 			for(int i = 0; i < nbPoints - k; i++){
 				drawLine(tmp[i].x,tmp[i].y,tmp[i+1].x,tmp[i+1].y);
 			}
+			if(k==1)
+				drawLine(poly[0].x, poly[0].y, tmp[0].x, tmp[0].y);	
 		}
+
 	}
 	return tmp[0];
 }
 
-/*************************************************************************/
-/* Fonctions de dessin */
-/*************************************************************************/
-
-/* rouge vert bleu entre 0 et 1 */
-void chooseColor(double r, double g, double b)
-{
-	glColor3d(r,g,b);
+void drawBezierCurve(bool draw){
+	Vecteur bezier_points;
+	int i = 0;
+	for(float t = 0; t <= 1; t += pas,i++){
+		bezier_points[i] = Bezier(t,false);
+	}
+	if(draw){
+		chooseColor(1,0,0);
+		Bezier(t,draw);
+	}
+	chooseColor(0,1,0);
+	for(i = 0; i < (int)ceil(1/pas) - 1; i++){
+		drawLine(bezier_points[i].x, bezier_points[i].y, bezier_points[i+1].x, bezier_points[i+1].y);
+	}
+	drawLine(poly[0].x, poly[0].y,bezier_points[(int)ceil(1/pas) - 1].x, bezier_points[(int)ceil(1/pas) - 1].y);
+	
 }
-
-void drawPoint(double x, double  y)
-{
-	glBegin(GL_POINTS);
-	glVertex2d(x,y);
-	glEnd();
-}
-
-void drawLine(double x1, double  y1, double x2, double y2)
-{
-	glBegin(GL_LINES);
-	glVertex2d(x1,y1);
-	glVertex2d(x2,y2);
-	glEnd();
-}
-
-
 /*************************************************************************/
 /* Fonctions callback */
 /*************************************************************************/
-
 void display()
 {
 	int i;
 	
-	Point bezier;
-	Vecteur bezier_points;
 	glClear(GL_COLOR_BUFFER_BIT);
 	// trac� du polygone de controle
 	chooseColor(1,1,1);
@@ -98,20 +117,8 @@ void display()
 			for (i=0;i<nbPoints;i++)
 				drawPoint(poly[i].x, poly[i].y);
 			break;
-		case BEZIER:
-			chooseColor(1,0,0);
-			Bezier(t,true);
-			break;
 	}
-	chooseColor(0,1,0);
-	i = 0;
-	for(float t = 0; t <= 1; t += pas,i++){
-		bezier_points[i] = Bezier(t,false);
-	}
-	for(i = 0; i < (int)ceil(1/pas) - 1; i++){
-		drawLine(bezier_points[i].x, bezier_points[i].y, bezier_points[i+1].x, bezier_points[i+1].y);
-	}
-	drawLine(poly[0].x, poly[0].y,bezier_points[(int)ceil(1/pas) - 1].x, bezier_points[(int)ceil(1/pas) - 1].y);
+	drawBezierCurve(bezierConstru);
 	glutSwapBuffers();
 }
 
@@ -122,8 +129,9 @@ void keyboard(unsigned char keycode, int x, int y)
 		exit(0);
 	else if (keycode==' ')
 		nbPoints = 0;
-	else if (keycode=='b')
-			MODE = BEZIER;
+	else if (keycode=='b'){
+		bezierConstru = !bezierConstru;
+	}
 	else if (keycode=='c'){
 		if(MODE!=LIGNES)
 			MODE = LIGNES;
