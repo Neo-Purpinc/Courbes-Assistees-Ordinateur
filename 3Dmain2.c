@@ -18,7 +18,7 @@ typedef struct
 typedef struct
 {
 	int selected;
-	Point pdc[4];
+	Point pdc[4][4];
 } Carreau;
 typedef enum {
 	NONE,
@@ -37,10 +37,31 @@ MoveType moveType = NONE;
 MODE mode = POINTS;
 
 Carreau exemple = {0, {
-	{4, 1, 1},
-	{4, 4, 3},
-	{1, 3, 1},
-	{1, 1, 3}}};
+	{
+		{0, 0, 0},
+		{0, 1, 0},
+		{0, 2, 0},
+		{0, 3, 0}
+	},
+	{
+		{1, 0, 0},
+		{1, 1, 2},
+		{1, 2, 1},
+		{1, 3, 1}
+	},
+	{
+		{2, 0, 0},
+		{2, 1, 2},
+		{2, 2, 1},
+		{2, 3, 1}
+	},
+	{
+		{3, 0, 0},
+		{3, 1, 0},
+		{3, 2, 0},
+		{3, 3, 0}
+	}
+}};
 Point pt(float x, float y, float z)
 {
 	Point p;
@@ -49,11 +70,8 @@ Point pt(float x, float y, float z)
 	p.z = z;
 	return p;
 }
- Point bezier3D(float s, float t){
+Point bezier3D(float s, float t){
 	Point p;
-	p.x = (1-t)*(1-s)*exemple.pdc[0].x + t*(1-s)*exemple.pdc[1].x + t*s*exemple.pdc[2].x + (1-t)*s*exemple.pdc[3].x;
-	p.y = (1-t)*(1-s)*exemple.pdc[0].y + t*(1-s)*exemple.pdc[1].y + t*s*exemple.pdc[2].y + (1-t)*s*exemple.pdc[3].y;
-	p.z = (1-t)*(1-s)*exemple.pdc[0].z + t*(1-s)*exemple.pdc[1].z + t*s*exemple.pdc[2].z + (1-t)*s*exemple.pdc[3].z;
 	return p;
  }
 
@@ -162,37 +180,41 @@ void display()
 
 	// ** Dessinez ici **
 	chooseColor(1,1,1);
-	drawQuad(exemple.pdc[0], exemple.pdc[1], exemple.pdc[2], exemple.pdc[3]);
-	drawSurface();
+	drawQuad(exemple.pdc[0][0], exemple.pdc[0][1], exemple.pdc[0][2], exemple.pdc[0][3]);
+	drawQuad(exemple.pdc[1][0], exemple.pdc[1][1], exemple.pdc[1][2], exemple.pdc[1][3]);
+	drawQuad(exemple.pdc[2][0], exemple.pdc[2][1], exemple.pdc[2][2], exemple.pdc[2][3]);
+	drawQuad(exemple.pdc[3][0], exemple.pdc[3][1], exemple.pdc[3][2], exemple.pdc[3][3]);
+	// drawSurface();
 	chooseColor(0,0,1);
-	drawPoint(exemple.pdc[exemple.selected]);
 	glutSwapBuffers();
 }
 
 void selectNextControlPoint(Carreau* c){
-	if(++c->selected > 3)
+	if(++c->selected > 15)
 		c->selected = 0;
 }
 
-void moveSelectedPoint(Carreau* c, MoveType type){
+void moveSelectedPoint(Carreau *c, MoveType type){
+	int a = c->selected /4;
+	int b = c->selected %4;
 	switch(type){
 		case MOVE_LEFT:
-			c->pdc[c->selected].x += 0.1;
+			c->pdc[a][b].x += 0.1;
 			break;
 		case MOVE_RIGHT:
-			c->pdc[c->selected].x -= 0.1;
+			c->pdc[a][b].x -= 0.1;
 			break;
 		case MOVE_BACK:
-			c->pdc[c->selected].y += 0.1;
+			c->pdc[a][b].y += 0.1;
 			break;
 		case MOVE_FRONT:
-			c->pdc[c->selected].y -= 0.1;
+			c->pdc[a][b].y -= 0.1;
 			break;
 		case MOVE_UP:
-			c->pdc[c->selected].z += 0.1;
+			c->pdc[a][b].z += 0.1;
 			break;
 		case MOVE_DOWN:
-			c->pdc[c->selected].z -= 0.1;
+			c->pdc[a][b].z -= 0.1;
 			break;
 		default:
 			break;
