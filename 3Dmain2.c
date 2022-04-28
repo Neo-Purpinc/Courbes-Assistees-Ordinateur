@@ -2,66 +2,22 @@
 #include <GL/glx.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
+
 /* dimensions de la fenetre */
-int width = 1600;
-int height = 900;
+int width = 600;
+int height = 400;
 
 /*************************************************************************/
 /* Bezier */
 /*************************************************************************/
-#define MAX_POINTS 100
+
+#define MAX_POINTS 100000
+#define GRID_SIDE 4
 typedef struct
 {
 	float x, y, z;
 } Point;
-typedef struct
-{
-	int selected;
-	Point pdc[4][4];
-} Carreau;
-typedef enum {
-	NONE,
-	MOVE_LEFT,
-	MOVE_RIGHT,
-	MOVE_BACK,
-	MOVE_FRONT,
-	MOVE_UP,
-	MOVE_DOWN,
-} MoveType;
-typedef enum {
-	POINTS,
-	QUADS
-} MODE;
-MoveType moveType = NONE;
-MODE mode = POINTS;
 
-Carreau exemple = {0, {
-	{
-		{0, 0, 0},
-		{0, 1, 0},
-		{0, 2, 0},
-		{0, 3, 0}
-	},
-	{
-		{1, 0, 0},
-		{1, 1, 2},
-		{1, 2, 1},
-		{1, 3, 1}
-	},
-	{
-		{2, 0, 0},
-		{2, 1, 2},
-		{2, 2, 1},
-		{2, 3, 1}
-	},
-	{
-		{3, 0, 0},
-		{3, 1, 0},
-		{3, 2, 0},
-		{3, 3, 0}
-	}
-}};
 Point pt(float x, float y, float z)
 {
 	Point p;
@@ -70,10 +26,79 @@ Point pt(float x, float y, float z)
 	p.z = z;
 	return p;
 }
-Point bezier3D(float s, float t){
-	Point p;
-	return p;
- }
+
+Point grille[GRID_SIDE][GRID_SIDE];
+
+Point pdc[MAX_POINTS];
+
+int cur_line = 0;
+int cur_col = 0;
+
+void moveXpoint(Point *p, float value)
+{
+	p->x += value;
+}
+
+void moveYpoint(Point *p, float value)
+{
+	p->y += value;
+}
+
+void moveZpoint(Point *p, float value)
+{
+	p->z += value;
+}
+
+Point BezierCarreau(Point A, Point B, Point C, Point D, float s, float t)
+{
+	Point P01;
+	Point P11;
+	Point P02;
+
+	P01.x = s * A.x + (1 - s) * B.x;
+	P01.y = s * A.y + (1 - s) * B.y;
+	P01.z = s * A.z + (1 - s) * B.z;
+
+	P11.x = s * C.x + (1 - s) * D.x;
+	P11.y = s * C.y + (1 - s) * D.y;
+	P11.z = s * C.z + (1 - s) * D.z;
+
+	P02.x = t * P01.x + (1 - t) * P11.x;
+	P02.y = t * P01.y + (1 - t) * P11.y;
+	P02.z = t * P01.z + (1 - t) * P11.z;
+
+	return P02;
+}
+
+Point Bezier(float s, float t)
+{
+	if (t < 0. || t > 1. || s < 0. || t > 1.)
+	{
+		printf("t ou s n'est pas entre 0 et 1\n");
+		exit(-1);
+	}
+
+	int nb_passes = GRID_SIDE - 1;
+	Point grid_c[GRID_SIDE][GRID_SIDE];
+	int i, j, k;
+
+	for (i = 0; i < GRID_SIDE; i++)
+		for (j = 0; j < GRID_SIDE; j++)
+			grid_c[i][j] = grille[i][j];
+
+	for (i = 0; i < nb_passes; i++)
+	{
+		Point tmp_grid[GRID_SIDE][GRID_SIDE];
+		for (j = 0; j < GRID_SIDE - i - 1; j++)
+			for (k = 0; k < GRID_SIDE - i - 1; k++)
+			{
+				tmp_grid[j][k] = BezierCarreau(grid_c[j][k], grid_c[j][k + 1], grid_c[j + 1][k + 1], grid_c[j + 1][k], s, t);
+				grid_c[j][k] = tmp_grid[j][k];
+			}
+	}
+
+	return grid_c[0][0];
+}
 
 /*************************************************************************/
 /* Fonctions de dessin */
@@ -82,21 +107,21 @@ Point bezier3D(float s, float t){
 /* rouge vert bleu entre 0 et 1 */
 void chooseColor(double r, double g, double b)
 {
-	glColor3d(r,g,b);
+	glColor3d(r, g, b);
 }
 
 void drawPoint(Point p)
 {
 	glBegin(GL_POINTS);
-	glVertex3d(p.x,p.y,p.z);
+	glVertex3d(p.x, p.y, p.z);
 	glEnd();
 }
 
 void drawLine(Point p1, Point p2)
 {
 	glBegin(GL_LINES);
-	glVertex3d(p1.x,p1.y,p1.z);
-	glVertex3d(p2.x,p2.y,p2.z);
+	glVertex3d(p1.x, p1.y, p1.z);
+	glVertex3d(p2.x, p2.y, p2.z);
 	glEnd();
 }
 
@@ -104,174 +129,107 @@ void drawQuad(Point p1, Point p2, Point p3, Point p4)
 {
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glBegin(GL_QUADS);
-	glVertex3d(p1.x,p1.y,p1.z);
-	glVertex3d(p2.x,p2.y,p2.z);
-	glVertex3d(p3.x,p3.y,p3.z);
-	glVertex3d(p4.x,p4.y,p4.z);
+	glVertex3f(p1.x, p1.y, p1.z);
+	glVertex3f(p2.x, p2.y, p2.z);
+	glVertex3f(p3.x, p3.y, p3.z);
+	glVertex3f(p4.x, p4.y, p4.z);
 	glEnd();
 }
 
-void drawSurface(){
-	switch (mode)
-	{
-		case POINTS:
-			chooseColor(1,0,0);
-			for(float s=0.; s<=1.; s+=0.001){
-				for(float t=0.; t<=1.; t+=0.001){
-					Point p = bezier3D(s,t);
-					drawPoint(p);
-				}
-			}
-			break;
-		case QUADS:
-			chooseColor(0.6,0,0.5);
-			// draw small quads inside the big ones
-			float pas = 0.1;
-			for(float s=0.; s<=1.; s+=pas){
-				for(float t=0.; t<=1.; t+=pas){
-					Point p = bezier3D(s,t);
-					Point p1 = bezier3D(s,t+pas);
-					Point p2 = bezier3D(s+pas,t+pas);
-					Point p3 = bezier3D(s+pas,t);
-					drawQuad(p,p1,p2,p3);
-				}
-			}
-			break;
-	}
-}
 /*************************************************************************/
 /* Fonctions callback */
 /*************************************************************************/
 
 void display()
 {
-	int i,j;
-	
+	int i, j;
+
 	glEnable(GL_DEPTH);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective( 60, (float)width/height, 1, 100);
+	gluPerspective(60, (float)width / height, 1, 100);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	glTranslatef(-4,-2,-5);
-	glRotated(25,1,0,0);
-	glRotated(90,0,1,0);
-	glRotated(-120,1,1,1);
-	
+	glTranslatef(-4, -2, -5);
+	glRotated(25, 1, 0, 0);
+	glRotated(90, 0, 1, 0);
+	glRotated(-120, 1, 1, 1);
+
 	// ** Repere du Monde **
-	chooseColor(1.0,0,0); // axe x=rouge
-	drawLine(pt(0,0,0), pt(10,0,0));
-	chooseColor(0,1.0,0); // axe y=vert
-	drawLine(pt(0,0,0), pt(0,10,0));
-	chooseColor(0,0,1.0); // axe z=bleu
-	drawLine(pt(0,0,0), pt(0,0,10));
-	
+	chooseColor(1.0, 0, 0); // axe x=rouge
+	drawLine(pt(0, 0, 0), pt(10, 0, 0));
+	chooseColor(0, 1.0, 0); // axe y=vert
+	drawLine(pt(0, 0, 0), pt(0, 10, 0));
+	chooseColor(0, 0, 1.0); // axe z=bleu
+	drawLine(pt(0, 0, 0), pt(0, 0, 10));
+
 	// ** Grille sur plan XY **
-	chooseColor(0.2,0.2,0.2); 
+	chooseColor(0.2, 0.2, 0.2);
 	glLineWidth(2.0);
-	for (i=1; i<10; i++)
+	for (i = 1; i < 10; i++)
 	{
-		drawLine(pt(i,0,0), pt(i,9,0));
-		drawLine(pt(0,i,0), pt(9,i,0));
+		drawLine(pt(i, 0, 0), pt(i, 9, 0));
+		drawLine(pt(0, i, 0), pt(9, i, 0));
 	}
 
 	// ** Dessinez ici **
-	chooseColor(1,1,1);
-	drawQuad(exemple.pdc[0][0], exemple.pdc[0][1], exemple.pdc[0][2], exemple.pdc[0][3]);
-	drawQuad(exemple.pdc[1][0], exemple.pdc[1][1], exemple.pdc[1][2], exemple.pdc[1][3]);
-	drawQuad(exemple.pdc[2][0], exemple.pdc[2][1], exemple.pdc[2][2], exemple.pdc[2][3]);
-	drawQuad(exemple.pdc[3][0], exemple.pdc[3][1], exemple.pdc[3][2], exemple.pdc[3][3]);
-	// drawSurface();
-	chooseColor(0,0,1);
+	chooseColor(1, 1, 1);
+	for (i = 0; i < 3; i++)
+		for (j = 0; j < 3; j++)
+			drawQuad(grille[i][j], grille[i][j + 1], grille[i + 1][j + 1], grille[i + 1][j]);
+
+	float s, t;
+	int nb_pts = 0;
+	for (s = 0.; s <= 1.; s += 0.01)
+		for (t = 0.; t <= 1.; t += 0.01)
+		{
+			pdc[nb_pts] = Bezier(s, t);
+			nb_pts++;
+		}
+
+	chooseColor(0.0, 1.0, 0.);
+	for (i = 0; i < nb_pts; i++)
+		drawPoint(pdc[i]);
+
 	glutSwapBuffers();
 }
 
-void selectNextControlPoint(Carreau* c){
-	if(++c->selected > 15)
-		c->selected = 0;
-}
-
-void moveSelectedPoint(Carreau *c, MoveType type){
-	int a = c->selected /4;
-	int b = c->selected %4;
-	switch(type){
-		case MOVE_LEFT:
-			c->pdc[a][b].x += 0.1;
-			break;
-		case MOVE_RIGHT:
-			c->pdc[a][b].x -= 0.1;
-			break;
-		case MOVE_BACK:
-			c->pdc[a][b].y += 0.1;
-			break;
-		case MOVE_FRONT:
-			c->pdc[a][b].y -= 0.1;
-			break;
-		case MOVE_UP:
-			c->pdc[a][b].z += 0.1;
-			break;
-		case MOVE_DOWN:
-			c->pdc[a][b].z -= 0.1;
-			break;
-		default:
-			break;
-	}
-}
 void keyboard(unsigned char keycode, int x, int y)
 {
-	bool move = false;
-	if(keycode == 27)
+	/* touche ECHAP */
+	if (keycode == 27)
 		exit(0);
-	else if(keycode == 'a' || keycode == 'A'){
-		moveType = MOVE_LEFT;
-		move = true;
-	}
-	else if(keycode == 'z' || keycode == 'Z'){
-		moveType = MOVE_BACK;
-		move = true;
-	}
-	else if(keycode == 'e' || keycode == 'E'){
-		moveType = MOVE_UP;
-		move = true;
-	}
-	else if(keycode == 'q' || keycode == 'Q'){
-		moveType = MOVE_RIGHT;
-		move = true;
-	}
-	else if(keycode == 's' || keycode == 'S'){
-		moveType = MOVE_FRONT;
-		move = true;
-	}
-	else if(keycode == 'd' || keycode == 'D'){
-		moveType = MOVE_DOWN;
-		move = true;
-	}
-	else if(keycode == 'f' || keycode == 'F'){
-		selectNextControlPoint(&exemple);
-	}
-	else if (keycode == 'w' || keycode == 'W'){
-		if (mode == QUADS)
-			mode = POINTS;
-		else
-			mode = QUADS;
-		printf("Mode %s\n", mode == QUADS ? "Quads" : "Points");
-	}
-	if(move)
-		moveSelectedPoint(&exemple, moveType);
+	if (keycode == 'a')
+		moveZpoint(&grille[cur_line][cur_col], -0.1);
+	if (keycode == 'z')
+		moveYpoint(&grille[cur_line][cur_col], 0.1);
+	if (keycode == 'e')
+		moveZpoint(&grille[cur_line][cur_col], 0.1);
+	if (keycode == 'q')
+		moveXpoint(&grille[cur_line][cur_col], -0.1);
+	if (keycode == 's')
+		moveYpoint(&grille[cur_line][cur_col], -0.1);
+	if (keycode == 'd')
+		moveXpoint(&grille[cur_line][cur_col], 0.1);
+	if (keycode == 'f')
+		cur_line = (cur_line + 1) % 4;
+	if (keycode == 'g')
+		cur_col = (cur_col + 1) % 4;
+
 	glutPostRedisplay();
 }
 
 void reshape(int w, int h)
 {
-	width=w;
-	height=h;
+	width = w;
+	height = h;
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluOrtho2D( 0, w, h, 0);
+	gluOrtho2D(0, w, h, 0);
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -279,50 +237,67 @@ void mouse(int button, int state, int x, int y)
 {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
 	{
-		printf("Clic at %d %d\n",x,y);
+		printf("Clic at %d %d\n", x, y);
 		glutPostRedisplay();
 	}
-
 }
-
-
 
 /*************************************************************************/
 /* Fonction principale */
 /*************************************************************************/
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
+	grille[0][0] = pt(0, 0, 0); // P(0,0)
+	grille[0][1] = pt(0, 1, 0); // P(0,1)
+	grille[0][2] = pt(0, 2, 0); // P(0,2)
+	grille[0][3] = pt(0, 3, 0); // P(0,3)
+
+	grille[1][0] = pt(1, 0, 0); // P(1,0)
+	grille[1][1] = pt(1, 1, 2); // P(1,1)
+	grille[1][2] = pt(1, 2, 1); // P(1,2)
+	grille[1][3] = pt(1, 3, 1); // P(1,3)
+
+	grille[2][0] = pt(2, 0, 0); // P(2, 0)
+	grille[2][1] = pt(2, 1, 2); // P(2, 1)
+	grille[2][2] = pt(2, 2, 1); // P(2, 2)
+	grille[2][3] = pt(2, 3, 1); // P(2, 3)
+
+	grille[3][0] = pt(3, 0, 0); // P(3, 0)
+	grille[3][1] = pt(3, 1, 0); // P(3, 1)
+	grille[3][2] = pt(3, 2, 0); // P(3, 2)
+	grille[3][3] = pt(3, 3, 0); // P(3, 3)
+
 	/* Initialisations globales */
 	glutInit(&argc, argv);
 
 	/* D�finition des attributs de la fenetre OpenGL */
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
+	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 
 	/* Placement de la fenetre */
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(50, 50);
-	
+
 	/* Cr�ation de la fenetre */
-    glutCreateWindow("Carreau de Bezier");
+	glutCreateWindow("Carreau de Bezier");
 
 	/* Choix de la fonction d'affichage */
 	glutDisplayFunc(display);
 
 	/* Choix de la fonction de redimensionnement de la fenetre */
 	glutReshapeFunc(reshape);
-	
+
 	/* Choix des fonctions de gestion du clavier */
 	glutKeyboardFunc(keyboard);
-	//glutSpecialFunc(special);
-	
+	// glutSpecialFunc(special);
+
 	/* Choix de la fonction de gestion de la souris */
 	glutMouseFunc(mouse);
 
 	/* Boucle principale */
-    glutMainLoop();
+	glutMainLoop();
 
 	/* M�me si glutMainLoop ne rends JAMAIS la main, il faut d�finir le return, sinon
 	le compilateur risque de crier */
-    return 0;
+	return 0;
 }
