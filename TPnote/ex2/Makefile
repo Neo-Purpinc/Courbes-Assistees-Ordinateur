@@ -1,5 +1,5 @@
 NAME = draw3D
-SRCS = main.c
+SRCS = 3Dmain.c
 OBJS = $(SRCS:.c=.o)
 
 CC = gcc

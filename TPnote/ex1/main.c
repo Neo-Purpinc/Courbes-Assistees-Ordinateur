@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <GL/glut.h>
 //#include <GL/glx.h>
-
+#include <math.h>
 /* dimensions de la fenetre */
 int width = 600;
 int height = 400;
-
+int N = 100;
 
 /*************************************************************************/
 /* Bezier */
@@ -20,33 +20,40 @@ typedef struct
 int nbPoints = 0;
 typedef Point Vecteur[MAX_POINTS];
 Vecteur poly;
-
-Point minus(Point a, Point b)
+float fact(int n)
 {
-	return (Point){ a.x - b.x, a.y - b.y };
+	if(n==0)
+		return 1;
+	else
+		return n*fact(n-1);
+}	
+float k_parmi_n(int n, int k)
+{
+	if(k>n)
+		return 0;
+	else
+		return fact(n)/(fact(k)*fact(n-k));
 }
 
-Point Hermite(float t, int noHermite)
+float Bernstein(int n, int i, float t)
 {
-	noHermite *= 4;
+	return k_parmi_n(n,i)*pow(t,i)*pow(1-t,n-i);
+}
 
-	Point a = poly[0 + noHermite];
-	Point b = poly[2 + noHermite];
-	Point ta = minus(poly[1 + noHermite], a);
-	Point tb = minus(poly[3 + noHermite], b);
-
-	float t2 = t*t;
-	float t3 = t2*t;
-	float h0 = 1.0 - 3.0*t2 + 2.0*t3;
-	float h1 = 3.0*t2 - 2.0*t3;
-	float h2 = t - 2.0*t2 + t3;
-	float h3 = -t2 + t3;
-
-	return (Point)
-	{
-		h0*a.x + h1*b.x + h2*ta.x + h3*tb.x,
-		h0*a.y + h1*b.y + h2*ta.y + h3*tb.y
-	};
+Point sum(Point a, Point b)
+{
+	return (Point){ a.x + b.x, a.y + b.y };
+}
+Point mult(Point a, float b)
+{
+	return (Point){ a.x * b, a.y * b };
+}
+Point Bezier(float t){
+	Point p = {0,0};
+	for(int i = 0; i < nbPoints; i++){
+		p = sum(p,mult(poly[i],Bernstein(nbPoints-1,i,t)));
+	}
+	return p;
 }
 
 /*************************************************************************/
@@ -74,27 +81,6 @@ void drawLine(double x1, double  y1, double x2, double y2)
 	glEnd();
 }
 
-void drawHermite()
-{
-	chooseColor(1,1,1);
-	int nbHermite = nbPoints/4;
-	int res = 30;
-	for(int i = 0; i < nbHermite; i++)
-	{
-		Point a;
-		for(int j = 0; j <= res; j++)
-		{
-			float t = (float)j/res;
-			Point b = Hermite(t, i);
-			if(j > 0)
-			{
-				drawLine(a.x, a.y, b.x, b.y);
-			}
-			a = b;
-		}
-	}
-}
-
 
 /*************************************************************************/
 /* Fonctions callback */
@@ -105,22 +91,34 @@ void display()
 	int i;
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	// tracé du polygone de controle
-	chooseColor(1,0,0);
+	// tracï¿½ du polygone de controle
+	chooseColor(1,1,1);
 	if (nbPoints == 1) 
 		drawPoint(poly[0].x, poly[0].y);
 	else if (nbPoints > 1) 
 	{
-		for (i=0;i<nbPoints-1;i+=2)
-		{
+		for (i=0;i<nbPoints-1;i++)
 			drawLine(poly[i].x, poly[i].y, poly[i+1].x, poly[i+1].y);
-		}
 	}
 
 	// ** Dessiner ici ! **
-	drawHermite();
-
-
+	Vecteur tmp;
+	Point p ;
+	float pas = 1./N;
+	if(nbPoints > 2){
+		chooseColor(1,0,0);
+		int i = 0;
+		for(float t = 0.0; t <= 1.0; t += pas,i++)
+		{
+			p = Bezier(t);
+			tmp[i] = p;
+		}
+		for(int i = 0; i < N-1; i++){
+			drawLine(tmp[i].x, tmp[i].y, tmp[i+1].x, tmp[i+1].y);
+		}
+	} else if (nbPoints <= 1) {
+		drawPoint(poly[0].x, poly[0].y);
+	}
 	glutSwapBuffers();
 }
 
@@ -176,14 +174,14 @@ int main(int argc, char *argv[])
 	/* Initialisations globales */
 	glutInit(&argc, argv);
 
-	/* Définition des attributs de la fenetre OpenGL */
+	/* Dï¿½finition des attributs de la fenetre OpenGL */
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 
 	/* Placement de la fenetre */
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(50, 50);
 	
-	/* Création de la fenetre */
+	/* Crï¿½ation de la fenetre */
     glutCreateWindow("Courbes");
 
 	/* Choix de la fonction d'affichage */
@@ -203,7 +201,7 @@ int main(int argc, char *argv[])
 	/* Boucle principale */
     glutMainLoop();
 
-	/* Même si glutMainLoop ne rends JAMAIS la main, il faut définir le return, sinon
+	/* Mï¿½me si glutMainLoop ne rends JAMAIS la main, il faut dï¿½finir le return, sinon
 	le compilateur risque de crier */
     return 0;
 }

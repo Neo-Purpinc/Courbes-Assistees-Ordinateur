@@ -1,4 +1,4 @@
-NAME = draw3D
+NAME = draw
 SRCS = main.c
 OBJS = $(SRCS:.c=.o)
 

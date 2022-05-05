@@ -2,24 +2,23 @@
 #include <GL/glx.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
+// A l'appui sur la touche Z, passe du mode Nuage de points au mode Quads
 
 /* dimensions de la fenetre */
 int width = 600;
 int height = 400;
-
+typedef enum {POINTS,QUADS} Mode;
+Mode mode = POINTS;
+int n = 100;
 /*************************************************************************/
 /* Bezier */
 /*************************************************************************/
-
-#define STEP 10.0
 #define MAX_POINTS 100
-#define M 4
-#define N 3
 typedef struct
 {
 	float x, y, z;
 } Point;
+Point grille[4][4];
 
 Point pt(float x, float y, float z)
 {
@@ -29,52 +28,50 @@ Point pt(float x, float y, float z)
 	p.z = z;
 	return p;
 }
-
-Point mult(Point a, float s)
+Point sum(Point a, Point b)
 {
-    Point res;
-    res.x = a.x * s;
-    res.y = a.y * s;
-    res.z = a.z * s;
-    return res;
+	return (Point){ a.x + b.x, a.y + b.y, a.z + b.z };
 }
-
-Point add(Point a, Point b)
+Point mult(Point a, float b)
 {
-    Point res;
-    res.x = a.x + b.x;
-    res.y = a.y + b.y;
-    res.z = a.z + b.z;
-    return res;
+	return (Point){ a.x * b, a.y * b, a.z * b };
 }
+int matB[4][4] = {{-1,3,-3,1},{3,-6,3,0},{-3,3,0,0},{1,0,0,0}};
 
-Point grille[M][N];
+Point Bezier3D(float t, float s){
+	float matT[1][4] = {t*t*t,t*t,t,1};
+	float matS[4][1] = {s*s*s,s*s,s,1};
 
-int fact(int n)
-{
-    int i, fact = 1;
-    for (i = 1; i <= n; i++)
-        fact = fact * i;
-    return fact;
+	// mult matT * matB => res is a mat of floats
+	float matTB[1][4] = {0,0,0,0};
+	for(int i=0;i<4;i++){
+		for(int j=0;j<4;j++){
+			matTB[0][i] += matT[0][j] * matB[j][i];
+		}
+	}
+
+	// mult matTB * points => res is matP, a mat of points
+	Point matP[1][4] = {pt(0,0,0),pt(0,0,0),pt(0,0,0),pt(0,0,0)};
+	for(int i=0;i<4;i++){
+		for(int j=0;j<4;j++){
+			matP[0][i] = sum(matP[0][i], mult(grille[j][i], matTB[0][j]));
+		}
+	}
+
+	// mult matP by matB^T => res is matP2, a mat of points (where matB^T is equal to matB)
+	Point matP2[1][4] = {pt(0,0,0),pt(0,0,0),pt(0,0,0),pt(0,0,0)};
+	for(int i=0;i<4;i++){
+		for(int j=0;j<4;j++){
+			matP2[0][i] = sum(matP2[0][i], mult(matP[0][j], matB[i][j]));
+		}
+	}
+	// mult matP2 by matS => res is the point of Bezier
+	Point res = {0,0,0};
+	for(int i=0;i<4;i++){
+		res = sum(res,mult(matP2[0][i],matS[0][i]));
+	}
+	return res;
 }
-
-float Bernstein(int i, int n, float t)
-{
-    float n_i = (i>0 && i<n) ? fact(n)/(fact(i)*fact(n-i)) : 0;
-    return n_i*pow(t,i)*pow(1-t,n-i);
-}
-
-Point Bezier3D(float s, float t)
-{
-    Point res;
-    for (int i = 0; i < M; i++) {
-        for (int j = 0; j < N; j++) {
-            res = add(res, mult(grille[i][j], Bernstein(i, N, s)*Bernstein(j, M, t)));
-        }
-    }
-    return res;
-}
-
 
 /*************************************************************************/
 /* Fonctions de dessin */
@@ -151,23 +148,29 @@ void display()
 		drawLine(pt(i,0,0), pt(i,9,0));
 		drawLine(pt(0,i,0), pt(9,i,0));
 	}
-
-	// ** Dessinez ici **
-
-    chooseColor(1, 1, 1);
-    for (int i=0; i<M-1; i++) {
-        for (int j=0; j<N-1; j++) {
-            drawQuad(grille[i][j], grille[i][j+1], grille[i+1][j+1], grille[i+1][j]);
-        }
-    }
-
-    for (float s = 0.0; s <= 1.0; s += 1.0/STEP) {
-        for (float t = 0.0; t <= 1.0; t += 1.0/STEP) {
-            Point p = Bezier3D(s, t);
-            drawPoint(p);
-        }
-    }
-	
+	// display control points
+	chooseColor(1,1,1);
+	for (i = 0; i < 3; i++){
+		for (j = 0; j < 3; j++)
+			drawQuad(grille[i][j], grille[i][j + 1], grille[i + 1][j + 1], grille[i + 1][j]);
+	}
+	chooseColor(1,0,0.7);
+	// display Bezier surface
+	for(float t=0.0;t<=1.0;t+=1./n){
+		for(float s=0.0;s<=1.0;s+=1./n){
+			Point p = Bezier3D(t,s);
+			if(mode == POINTS)
+				drawPoint(p);
+			else{
+				if(t!=1.)
+					drawLine(p, Bezier3D(t+1./n,s));
+				else
+					drawLine(p, Bezier3D(t-1./n,s));
+				if(s!=1.)
+					drawLine(p, Bezier3D(t,s+1./n));
+			}
+		}
+	}
 	glutSwapBuffers();
 }
 
@@ -177,9 +180,16 @@ void keyboard(unsigned char keycode, int x, int y)
 	if (keycode==27) 
 		exit(0);
 	/* touche ECHAP */
-	if (keycode=='z')
-		printf("La touche z a ete enfoncee\n");
-
+	if (keycode=='z'){
+		if(mode == POINTS){
+			mode = QUADS;
+			n=10;
+		}
+		else{
+			mode = POINTS;
+			n=100;
+		}
+	}
 	glutPostRedisplay();
 }
 
@@ -212,7 +222,7 @@ void mouse(int button, int state, int x, int y)
 
 int main(int argc, char *argv[]) 
 {
-    grille[0][0] = pt(0, 0, 0); // P(0,0)
+	grille[0][0] = pt(0, 0, 0); // P(0,0)
 	grille[0][1] = pt(0, 1, 0); // P(0,1)
 	grille[0][2] = pt(0, 2, 0); // P(0,2)
 	grille[0][3] = pt(0, 3, 0); // P(0,3)
@@ -232,22 +242,17 @@ int main(int argc, char *argv[])
 	grille[3][2] = pt(3, 2, 0); // P(3, 2)
 	grille[3][3] = pt(3, 3, 0); // P(3, 3)
 
-    grille[4][0] = pt(4, 0, 0); // P(4, 0)
-    grille[4][1] = pt(4, 1, 2); // P(4, 1)
-    grille[4][2] = pt(4, 2, 1); // P(4, 2)
-    grille[4][3] = pt(4, 3, 1); // P(4, 3)
-
 	/* Initialisations globales */
 	glutInit(&argc, argv);
 
-	/* Définition des attributs de la fenetre OpenGL */
+	/* D�finition des attributs de la fenetre OpenGL */
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 
 	/* Placement de la fenetre */
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(50, 50);
 	
-	/* Création de la fenetre */
+	/* Cr�ation de la fenetre */
     glutCreateWindow("Carreau de Bezier");
 
 	/* Choix de la fonction d'affichage */
@@ -266,7 +271,7 @@ int main(int argc, char *argv[])
 	/* Boucle principale */
     glutMainLoop();
 
-	/* Même si glutMainLoop ne rends JAMAIS la main, il faut définir le return, sinon
+	/* M�me si glutMainLoop ne rends JAMAIS la main, il faut d�finir le return, sinon
 	le compilateur risque de crier */
     return 0;
 }
